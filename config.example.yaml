@@ -1,0 +1,71 @@
+# Copy to config.yaml and fill in your keys. Any value still starting with YOUR_ makes
+# the pipeline refuse to start and name the offending key.
+#
+# Every key here can also be supplied through the environment, which wins over this file:
+#   data_api_key -> SOLANA_TRACKER_KEY   grok_key   -> XAI_API_KEY
+#   claude_key   -> ANTHROPIC_API_KEY    openai_key -> OPENAI_API_KEY
+#   gemini_key   -> GOOGLE_API_KEY
+
+mode: "dry-run"   # "dry-run" | "live"
+
+ws_url: "wss://pumpportal.fun/api/data"
+
+# OPTIONAL. pump.fun's public feed only broadcasts token *creations*; per-token trade
+# streams (subscribeTokenTrade) require a PumpPortal API key funded with >= 0.02 SOL.
+# With a key, the filter reads buyers and volume live off the socket at no extra cost.
+# Leave it empty and the filter instead polls Solana Tracker once per candidate to get
+# the same numbers - correct either way, but it spends one API call per launch watched.
+pumpportal_api_key: ""
+data_api: "https://data.solanatracker.io"
+data_api_key: "YOUR_SOLANA_TRACKER_KEY"
+rpc_url: "https://api.mainnet-beta.solana.com"
+
+grok_key: "YOUR_XAI_KEY"
+claude_key: "YOUR_ANTHROPIC_KEY"
+openai_key: "YOUR_OPENAI_KEY"
+gemini_key: "YOUR_GOOGLE_KEY"
+
+grok_model: "grok-4-fast"
+claude_model: "claude-sonnet-4-6"
+gpt_model: "gpt-4o"
+gemini_model: "gemini-2.5-flash"
+
+filter:
+  min_buyers: 5
+  max_curve_pct: 40
+  min_age_minutes: 2
+  require_metadata: true
+  min_volume_sol: 0.5
+  max_age_minutes: 30      # drop a watched launch that never qualifies within this window
+  gate_concurrency: 4      # parallel metric polls when there is no PumpPortal key
+
+consensus:
+  min_score: 0.60
+  min_agreement: 0.75
+  conflict_threshold: 0.40
+  bull_threshold: 0.55     # score at or above this counts as a bull vote
+  bear_threshold: 0.45     # score below this counts as a bear vote
+
+vetoes:
+  max_coordinated_shilling: 0.7
+  max_dump_risk: 0.8
+  max_red_flag_visual: 0.7
+  max_coordination_score: 0.8
+
+risk:
+  max_position_sol: 0.1
+  daily_loss_limit_sol: 0.5
+  max_daily_trades: 10
+  max_open_positions: 3
+  stop_loss_pct: 50
+  take_profit_pct: 100
+  max_hold_minutes: 30
+  min_position_sol: 0.005
+
+solana:
+  wallet_key: "YOUR_WALLET_KEY"
+  jito_tip_lamports: 10000
+  slippage_bps: 500
+
+log_path: "logs/trades.jsonl"
+conflict_log_path: "logs/conflicts.jsonl"
