@@ -6,7 +6,7 @@
 A fifth is paid to talk them out of it.**
 
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-236%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/tests-245%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-clean-2563eb?style=for-the-badge)](pyproject.toml)
 [![Lint](https://img.shields.io/badge/ruff-clean-7c3aed?style=for-the-badge)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-64748b?style=for-the-badge)](LICENSE)
@@ -363,6 +363,13 @@ launch with no picture.
 **3. The adjudicator fails closed.** If the fifth call errors out, the trade is vetoed, not
 approved. The entire point of that seat is to stand between a confident panel and a bad
 trade; if it could not run, that thing was not there.
+
+**4. "Cannot trade" is three states, not a boolean.** Running out of position slots clears
+the moment a monitor closes one, so it *pauses*: skip this launch, keep consuming. A spent
+daily budget does not clear until tomorrow, so it *halts*. These were one bit until
+recently, and the pipeline `break`ed on both — meaning the first time three positions were
+open concurrently, the run ended for good. It could not surface in dry-run, which opens no
+positions at all.
 
 ## Layout
 

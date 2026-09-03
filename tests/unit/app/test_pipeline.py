@@ -74,11 +74,14 @@ class FakeMarketData:
 
 
 class FakeFeed:
-    """Yields nothing; these tests call `evaluate` directly."""
+    """Yields a scripted list of launches, then ends."""
+
+    def __init__(self, tokens=()):
+        self.tokens = list(tokens)
 
     async def stream(self):
-        return
-        yield  # pragma: no cover
+        for token in self.tokens:
+            yield token
 
     async def aclose(self) -> None:
         return None
@@ -125,13 +128,13 @@ class FakeExecutor:
         return {"pnl_sol": 0.0, "exit_reason": "test"}
 
 
-def build(agents, *, adjudicator=None, risk_score=1.0, settings=None):
+def build(agents, *, adjudicator=None, risk_score=1.0, settings=None, feed_tokens=()):
     """Assemble a pipeline from fakes and return (pipeline, journal, executor)."""
     settings = settings or make_settings()
     journal, executor = RecordingJournal(), FakeExecutor()
     pipeline = TradingPipeline(
         settings,
-        feed=FakeFeed(),
+        feed=FakeFeed(feed_tokens),
         market_data=FakeMarketData(risk_score),
         agents=agents,
         adjudicator=adjudicator or FakeAdjudicator(),
@@ -271,3 +274,105 @@ async def test_a_dead_seat_does_not_kill_the_round(failing_seat):
 
     await pipeline.evaluate(make_token())   # must not raise
     assert journal.skips, "the round completed and recorded a decision"
+
+
+# --- the run loop ------------------------------------------------------------
+
+async def test_running_out_of_slots_skips_the_launch_and_keeps_consuming():
+    """The bug this replaced: `break` on a transient condition ended the run for good.
+
+    Capacity clears the moment a monitor task closes a position, so the loop must skip
+    the launch in front of it and carry on. It never bit in dry-run, because dry-run
+    opens no positions -- it would only have shown up with real money on the line.
+    """
+    tokens = [make_token(symbol=f"T{i}") for i in range(3)]
+    pipeline, journal, _ = build(BULLISH(), feed_tokens=tokens)
+    for i in range(3):
+        pipeline.risk.open_position(f"held{i}", 0.01)
+
+    await pipeline.run()
+
+    assert [r for r, _ in journal.skips] == ["at_capacity"] * 3
+    assert pipeline.evaluated == 0, "no model calls were spent while full"
+
+
+async def test_a_freed_slot_resumes_evaluation_mid_run():
+    tokens = [make_token(symbol=f"T{i}") for i in range(2)]
+    pipeline, journal, _ = build(BULLISH(), feed_tokens=tokens)
+    for i in range(3):
+        pipeline.risk.open_position(f"held{i}", 0.01)
+
+    # A monitor task closes a position between the two launches.
+    original = pipeline.risk.check
+    calls = {"n": 0}
+
+    def check_then_free():
+        calls["n"] += 1
+        if calls["n"] == 2:
+            pipeline.risk.close_position("held0", 0.0)
+        return original()
+
+    pipeline.risk.check = check_then_free  # type: ignore[method-assign]
+    await pipeline.run()
+
+    reasons = [r for r, _ in journal.skips]
+    assert reasons[0] == "at_capacity"
+    assert pipeline.evaluated == 1, "the second launch was evaluated once a slot freed"
+
+
+async def test_the_daily_loss_limit_ends_the_run():
+    """A spent budget does not clear until tomorrow; consuming the feed is pointless."""
+    tokens = [make_token(symbol=f"T{i}") for i in range(3)]
+    pipeline, journal, _ = build(BULLISH(), feed_tokens=tokens)
+    pipeline.risk.daily_pnl_sol = -0.5
+
+    await pipeline.run()
+
+    assert [r for r, _ in journal.skips] == ["risk_halt"]
+    assert pipeline.evaluated == 0
+
+
+async def test_the_daily_trade_cap_ends_the_run():
+    tokens = [make_token(symbol=f"T{i}") for i in range(3)]
+    pipeline, journal, _ = build(BULLISH(), feed_tokens=tokens)
+    pipeline.risk.trades_today = 10
+
+    await pipeline.run()
+
+    assert [r for r, _ in journal.skips] == ["risk_halt"]
+
+
+async def test_a_raising_evaluation_does_not_kill_the_loop():
+    """One malformed launch must cost that launch, not the session."""
+    tokens = [make_token(symbol=f"T{i}") for i in range(3)]
+    pipeline, journal, _ = build(BULLISH(), feed_tokens=tokens)
+
+    original = pipeline.evaluate
+    calls = {"n": 0}
+
+    async def sometimes_explode(token):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("bad token")
+        return await original(token)
+
+    pipeline.evaluate = sometimes_explode  # type: ignore[method-assign]
+    await pipeline.run()
+
+    assert calls["n"] == 3, "all three launches were attempted"
+    assert ("pipeline_error", "RuntimeError: bad token") in journal.skips
+
+
+async def test_the_feed_is_closed_when_the_run_ends():
+    pipeline, _, _ = build(BULLISH(), feed_tokens=[])
+    closed = {"feed": False}
+    pipeline.feed.aclose = lambda: _mark(closed)  # type: ignore[method-assign]
+
+    await pipeline.run()
+
+    assert closed["feed"] is True
+
+
+async def _mark(flag: dict) -> None:
+    """Helper coroutine that records that aclose was awaited."""
+    flag["feed"] = True

@@ -6,7 +6,9 @@ test case rather than something you wait for.
 
 from __future__ import annotations
 
+import enum
 import logging
+from dataclasses import dataclass
 
 from ..config.settings import RiskConfig
 from .clock import SystemClock
@@ -15,6 +17,35 @@ logger = logging.getLogger(__name__)
 
 # No single entry may consume more than this share of what is left to lose today.
 BUDGET_SHARE_PER_TRADE = 0.30
+
+
+class TradingStatus(enum.Enum):
+    """Why the desk may or may not take the next trade.
+
+    The distinction between PAUSED and HALTED is the whole reason this is not a bool.
+    Capacity clears on its own the moment a position closes; a spent daily budget does
+    not clear until tomorrow. Treating them alike means either shutting the run down over
+    a transient condition, or trading through a limit that was supposed to stop it.
+    """
+
+    OK = "ok"
+    #: Transient. Resolves without intervention -- skip this launch and keep consuming.
+    PAUSED = "paused"
+    #: Terminal for the day. Stop the loop.
+    HALTED = "halted"
+
+
+@dataclass(frozen=True)
+class TradingCheck:
+    """The answer to "may we trade right now", with the reason attached."""
+
+    status: TradingStatus
+    reason: str
+
+    @property
+    def ok(self) -> bool:
+        """True when the next launch may be evaluated."""
+        return self.status is TradingStatus.OK
 
 
 class RiskManager:
@@ -52,22 +83,32 @@ class RiskManager:
         """How much of the daily loss budget is still unspent."""
         return max(0.0, self.config.daily_loss_limit_sol + min(0.0, self.daily_pnl_sol))
 
-    def can_trade(self) -> tuple[bool, str]:
-        """Return (allowed, reason). The orchestrator stops the loop when this is False."""
+    def check(self) -> TradingCheck:
+        """Whether the next launch may be evaluated, and if not, whether that is temporary.
+
+        The two daily limits are terminal until the date rolls over. Running out of
+        position slots is not: a monitor task closing a position frees one, so the caller
+        must keep consuming the feed rather than shutting down.
+        """
         self._roll_day()
         if self.daily_pnl_sol <= -self.config.daily_loss_limit_sol:
-            return False, (
+            return TradingCheck(
+                TradingStatus.HALTED,
                 f"daily loss limit hit: {self.daily_pnl_sol:+.4f} SOL "
-                f"<= -{self.config.daily_loss_limit_sol}"
+                f"<= -{self.config.daily_loss_limit_sol}",
             )
         if self.trades_today >= self.config.max_daily_trades:
-            return False, f"daily trade cap hit: {self.trades_today}/{self.config.max_daily_trades}"
-        if len(self.open_positions) >= self.config.max_open_positions:
-            return False, (
-                f"max open positions: {len(self.open_positions)}"
-                f"/{self.config.max_open_positions}"
+            return TradingCheck(
+                TradingStatus.HALTED,
+                f"daily trade cap hit: {self.trades_today}/{self.config.max_daily_trades}",
             )
-        return True, "ok"
+        if len(self.open_positions) >= self.config.max_open_positions:
+            return TradingCheck(
+                TradingStatus.PAUSED,
+                f"at capacity: {len(self.open_positions)}"
+                f"/{self.config.max_open_positions} positions open",
+            )
+        return TradingCheck(TradingStatus.OK, "ok")
 
     # --- sizing ---------------------------------------------------------------
 

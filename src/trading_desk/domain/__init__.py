@@ -10,7 +10,7 @@ from __future__ import annotations
 from .clock import FrozenClock, SystemClock
 from .consensus import ConsensusEngine
 from .evaluation import EvaluationContext, MarketContext, RiskReport
-from .risk import RiskManager
+from .risk import RiskManager, TradingCheck, TradingStatus
 from .token import Token, curve_pct_from_reserves
 from .verdict import AdjudicationReport, AgentReport, ConsensusResult
 
@@ -26,5 +26,7 @@ __all__ = [
     "RiskReport",
     "SystemClock",
     "Token",
+    "TradingCheck",
+    "TradingStatus",
     "curve_pct_from_reserves",
 ]

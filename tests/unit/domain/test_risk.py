@@ -6,7 +6,7 @@ import pytest
 
 from tests.conftest import make_settings
 from trading_desk.domain.clock import FrozenClock
-from trading_desk.domain.risk import RiskManager
+from trading_desk.domain.risk import RiskManager, TradingStatus
 
 
 @pytest.fixture
@@ -48,23 +48,53 @@ def test_exhausted_budget_returns_zero_not_dust(risk):
     assert risk.position_size(0.8, 0.625) == 0.0
 
 
-def test_daily_loss_limit_stops_trading(risk):
+def test_a_clean_desk_may_trade(risk):
+    check = risk.check()
+    assert check.ok and check.status is TradingStatus.OK
+
+
+def test_daily_loss_limit_halts_for_the_day(risk):
     risk.daily_pnl_sol = -0.5
-    allowed, reason = risk.can_trade()
-    assert not allowed and "daily loss limit" in reason
+    check = risk.check()
+    assert check.status is TradingStatus.HALTED
+    assert "daily loss limit" in check.reason
 
 
-def test_daily_trade_cap_stops_trading(risk):
+def test_daily_trade_cap_halts_for_the_day(risk):
     risk.trades_today = 10
-    allowed, reason = risk.can_trade()
-    assert not allowed and "trade cap" in reason
+    check = risk.check()
+    assert check.status is TradingStatus.HALTED
+    assert "trade cap" in check.reason
 
 
-def test_max_open_positions_stops_trading(risk):
+def test_running_out_of_slots_pauses_rather_than_halts(risk):
+    """Capacity clears the moment a position closes; ending the run over it is wrong."""
     for i in range(3):
         risk.open_position(f"addr{i}", 0.01)
-    allowed, reason = risk.can_trade()
-    assert not allowed and "open positions" in reason
+
+    check = risk.check()
+    assert check.status is TradingStatus.PAUSED
+    assert not check.ok
+    assert "capacity" in check.reason
+
+
+def test_capacity_clears_itself_when_a_position_closes(risk):
+    for i in range(3):
+        risk.open_position(f"addr{i}", 0.01)
+    assert risk.check().status is TradingStatus.PAUSED
+
+    risk.close_position("addr0", 0.0)
+
+    assert risk.check().status is TradingStatus.OK
+
+
+def test_a_halt_outranks_a_pause(risk):
+    """At capacity AND out of budget is a halt: the terminal condition must win."""
+    for i in range(3):
+        risk.open_position(f"addr{i}", 0.01)
+    risk.daily_pnl_sol = -0.5
+
+    assert risk.check().status is TradingStatus.HALTED
 
 
 def test_closing_a_position_frees_a_slot_and_books_pnl(risk):
@@ -88,9 +118,8 @@ def test_counters_reset_when_the_day_rolls_over(risk):
     assert risk.trades_today == 1
 
     risk.clock.advance_days(1)
-    allowed, _ = risk.can_trade()
 
-    assert allowed
+    assert risk.check().ok
     assert risk.trades_today == 0
     assert risk.daily_pnl_sol == 0.0
     assert risk.remaining_daily_sol == pytest.approx(0.5)

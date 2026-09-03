@@ -23,7 +23,7 @@ import httpx
 from ..config.settings import Settings
 from ..domain.consensus import ConsensusEngine
 from ..domain.evaluation import EvaluationContext, MarketContext
-from ..domain.risk import RiskManager
+from ..domain.risk import RiskManager, TradingStatus
 from ..domain.token import Token
 from ..domain.verdict import AdjudicationReport, AgentReport, ConsensusResult
 from ..ports import (
@@ -86,11 +86,17 @@ class TradingPipeline:
         ]
         try:
             async for token in self.feed.stream():
-                allowed, reason = self.risk.can_trade()
-                if not allowed:
-                    logger.warning("halting: %s", reason)
-                    await self.journal.record_skip(token, "risk_halt", reason)
+                check = self.risk.check()
+                if check.status is TradingStatus.HALTED:
+                    logger.warning("halting: %s", check.reason)
+                    await self.journal.record_skip(token, "risk_halt", check.reason)
                     break
+                if check.status is TradingStatus.PAUSED:
+                    # Transient: a monitor task closing a position frees a slot. Skip
+                    # this launch and keep consuming, rather than ending the run.
+                    logger.info("skipping %s: %s", token.symbol or "?", check.reason)
+                    await self.journal.record_skip(token, "at_capacity", check.reason)
+                    continue
                 try:
                     await self.evaluate(token)
                 except asyncio.CancelledError:

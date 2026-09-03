@@ -27,6 +27,18 @@ Invariants:
 3. **Profit does not inflate the budget.** `remaining_daily_sol` uses `min(0.0, pnl)`. The
    daily limit is a floor on losses, not a bankroll that wins top up.
 4. **Counters reset on date change, not on a timer.** Driven by the injected `Clock`.
+5. **"Cannot trade" is three states, not a boolean.** `check()` returns `OK`, `PAUSED` or
+   `HALTED`. Capacity clears the moment a monitor task closes a position, so it PAUSES:
+   the caller skips that launch and keeps consuming. The two daily limits do not clear
+   until the date rolls over, so they HALT. A halt outranks a pause.
+
+### A defect this distinction replaced
+
+`can_trade()` returned a single boolean and the orchestrator did `break` on it, so the
+first time three positions were open concurrently the run ended permanently. It could not
+show up in dry-run — dry-run opens no positions at all — so it was reachable only with
+real money on the line. Collapsing a transient condition and a terminal one into one bit
+is what made it invisible.
 
 ## Configuration
 
@@ -35,6 +47,10 @@ every position unfundable.
 
 ## Verification
 
-`tests/unit/domain/test_risk.py` — 13 cases: max conviction, scaling, the floor lift, the
-zero cliff, budget-cap binding after losses, all three halt conditions, PnL bookkeeping,
-profit not inflating the budget, and day rollover via `FrozenClock`.
+`tests/unit/domain/test_risk.py` — max conviction, scaling, the floor lift, the zero
+cliff, budget-cap binding after losses, each of the three states, capacity clearing itself
+when a position closes, a halt outranking a pause, PnL bookkeeping, profit not inflating
+the budget, and day rollover via `FrozenClock`.
+
+`tests/unit/app/test_pipeline.py` — at the loop level: a pause skips the launch and keeps
+consuming, a freed slot resumes evaluation mid-run, and either daily limit ends the run.
