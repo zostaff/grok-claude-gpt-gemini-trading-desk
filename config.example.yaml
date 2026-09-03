@@ -1,42 +1,68 @@
-# Copy to config.yaml and fill in your keys. Any value still starting with YOUR_ makes
-# the pipeline refuse to start and name the offending key.
+# Copy to config.yaml and fill in the credentials block. Any value still starting with
+# YOUR_ makes the pipeline refuse to start and name the offending key.
 #
-# Every key here can also be supplied through the environment, which wins over this file:
-#   data_api_key -> SOLANA_TRACKER_KEY   grok_key   -> XAI_API_KEY
-#   claude_key   -> ANTHROPIC_API_KEY    openai_key -> OPENAI_API_KEY
-#   gemini_key   -> GOOGLE_API_KEY
+# Every credential can also come from the environment, which wins over this file, so
+# nothing secret has to be written to disk:
+#
+#   credentials.solana_tracker <- SOLANA_TRACKER_KEY
+#   credentials.grok           <- XAI_API_KEY
+#   credentials.anthropic      <- ANTHROPIC_API_KEY
+#   credentials.openai         <- OPENAI_API_KEY
+#   credentials.google         <- GOOGLE_API_KEY
+#   credentials.pumpportal     <- PUMPPORTAL_API_KEY   (optional)
+#   credentials.wallet         <- SOLANA_WALLET_KEY    (unused: executor is a stub)
 
 mode: "dry-run"   # "dry-run" | "live"
 
-ws_url: "wss://pumpportal.fun/api/data"
+credentials:
+  solana_tracker: "YOUR_SOLANA_TRACKER_KEY"
+  grok: "YOUR_XAI_KEY"
+  anthropic: "YOUR_ANTHROPIC_KEY"
+  openai: "YOUR_OPENAI_KEY"
+  google: "YOUR_GOOGLE_KEY"
+  # OPTIONAL. pump.fun's public feed broadcasts token *creations* only; per-token trade
+  # streams (subscribeTokenTrade) need a PumpPortal key funded with >= 0.02 SOL. With a
+  # key the filter reads buyers and volume live off the socket at no extra cost. Leave it
+  # empty and it polls Solana Tracker once per candidate instead - correct either way,
+  # but that spends one API call per launch watched.
+  pumpportal: ""
+  # Only read by a real executor. The shipped executor is a stub and ignores it.
+  wallet: ""
 
-# OPTIONAL. pump.fun's public feed only broadcasts token *creations*; per-token trade
-# streams (subscribeTokenTrade) require a PumpPortal API key funded with >= 0.02 SOL.
-# With a key, the filter reads buyers and volume live off the socket at no extra cost.
-# Leave it empty and the filter instead polls Solana Tracker once per candidate to get
-# the same numbers - correct either way, but it spends one API call per launch watched.
-pumpportal_api_key: ""
-data_api: "https://data.solanatracker.io"
-data_api_key: "YOUR_SOLANA_TRACKER_KEY"
-rpc_url: "https://api.mainnet-beta.solana.com"
+# Verified against each provider's model list on 2026-09-03. They age fast: check before
+# assuming these are current. Every seat is a config value precisely so that a model
+# swap never requires a code change.
+models:
+  grok: "grok-4.6"            # xAI flagship; the only seat with live X search
+  claude: "claude-opus-5"     # wallet forensics, and the adjudicator seat
+  gpt: "gpt-5.6-sol"          # OpenAI flagship; schema-guaranteed replies
+  gemini: "gemini-3.8-flash"  # newest STABLE Gemini; the Pro tier is preview-only today
+  # Swap the line above for "gemini-3.1-pro-preview" to run the Pro tier and accept
+  # preview status.
 
-grok_key: "YOUR_XAI_KEY"
-claude_key: "YOUR_ANTHROPIC_KEY"
-openai_key: "YOUR_OPENAI_KEY"
-gemini_key: "YOUR_GOOGLE_KEY"
+  # Reasoning depth, where the provider exposes it. The adjudicator thinks hardest
+  # because finding what four models missed is harder than scoring a launch.
+  claude_effort: "high"        # low | medium | high | xhigh | max
+  adjudicator_effort: "xhigh"
+  gpt_effort: "high"
 
-grok_model: "grok-4-fast"
-claude_model: "claude-sonnet-4-6"
-gpt_model: "gpt-4o"
-gemini_model: "gemini-2.5-flash"
+endpoints:
+  pumpportal_ws: "wss://pumpportal.fun/api/data"
+  solana_tracker: "https://data.solanatracker.io"
+  solana_rpc: "https://api.mainnet-beta.solana.com"
+  xai: "https://api.x.ai/v1"
+  coingecko: "https://api.coingecko.com/api/v3"
+  ipfs_gateway: "https://ipfs.io/ipfs/"
 
+# The cheap gate. Ordered by cost: the free checks run first so the paid ones never see
+# most of the traffic.
 filter:
   min_buyers: 5
   max_curve_pct: 40
   min_age_minutes: 2
   require_metadata: true
   min_volume_sol: 0.5
-  max_age_minutes: 30      # drop a watched launch that never qualifies within this window
+  max_age_minutes: 30      # drop a watched launch that never qualifies in this window
   gate_concurrency: 4      # parallel metric polls when there is no PumpPortal key
 
 consensus:
@@ -46,11 +72,15 @@ consensus:
   bull_threshold: 0.55     # score at or above this counts as a bull vote
   bear_threshold: 0.45     # score below this counts as a bear vote
 
+# Kill switches. Each is owned by the seat that raises it, except the last two, which
+# belong to the pipeline.
 vetoes:
-  max_coordinated_shilling: 0.7
-  max_dump_risk: 0.8
-  max_red_flag_visual: 0.7
-  max_coordination_score: 0.8
+  max_coordinated_shilling: 0.7   # grok
+  max_dump_risk: 0.8              # claude
+  max_coordination_score: 0.8     # claude
+  max_red_flag_visual: 0.7        # gemini
+  max_rug_score: 7.0              # third-party report, checked before any model call
+  min_final_confidence: 0.4       # floor after the adjudicator's adjustment
 
 risk:
   max_position_sol: 0.1
@@ -63,9 +93,9 @@ risk:
   min_position_sol: 0.005
 
 solana:
-  wallet_key: "YOUR_WALLET_KEY"
   jito_tip_lamports: 10000
   slippage_bps: 500
 
-log_path: "logs/trades.jsonl"
-conflict_log_path: "logs/conflicts.jsonl"
+journal:
+  decisions_path: "logs/trades.jsonl"
+  disagreements_path: "logs/conflicts.jsonl"

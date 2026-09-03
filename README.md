@@ -3,53 +3,57 @@
 # grok-claude-gpt-gemini-trading-desk
 
 **Four frontier LLMs look at the same pump.fun launch from four angles they don't share.
-A fifth tries to talk them out of it.**
+A fifth is paid to talk them out of it.**
 
-[![Python](https://img.shields.io/badge/python-3.14-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-47%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
-[![Mode](https://img.shields.io/badge/default-dry--run-f59e0b?style=for-the-badge)](#quick-start)
-[![Executor](https://img.shields.io/badge/executor-stub-dc2626?style=for-the-badge)](#implementing-the-executor)
+[![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Tests](https://img.shields.io/badge/tests-130%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Typed](https://img.shields.io/badge/mypy-clean-2563eb?style=for-the-badge)](pyproject.toml)
+[![Lint](https://img.shields.io/badge/ruff-clean-7c3aed?style=for-the-badge)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-MIT-64748b?style=for-the-badge)](LICENSE)
 
-[![Grok](https://img.shields.io/badge/Grok-social_sentinel-8b5cf6?style=flat-square)](#the-panel)
-[![Claude](https://img.shields.io/badge/Claude-wallet_auditor-d97757?style=flat-square)](#the-panel)
-[![GPT](https://img.shields.io/badge/GPT-narrative_scorer-10a37f?style=flat-square)](#the-panel)
-[![Gemini](https://img.shields.io/badge/Gemini-image_analyst-4285f4?style=flat-square)](#the-panel)
-[![Checker](https://img.shields.io/badge/Claude-adversarial_checker-b45309?style=flat-square)](#the-panel)
+[![Grok](https://img.shields.io/badge/grok--4.6-social_sentinel-8b5cf6?style=flat-square)](#the-panel)
+[![Claude](https://img.shields.io/badge/claude--opus--5-wallet_auditor-d97757?style=flat-square)](#the-panel)
+[![GPT](https://img.shields.io/badge/gpt--5.6--sol-narrative_scorer-10a37f?style=flat-square)](#the-panel)
+[![Gemini](https://img.shields.io/badge/gemini--3.8--flash-image_analyst-4285f4?style=flat-square)](#the-panel)
+[![Adjudicator](https://img.shields.io/badge/claude--opus--5-adversarial_checker-b45309?style=flat-square)](#the-panel)
 
 </div>
 
 ---
 
 A multi-model trading pipeline for pump.fun launches on Solana. It listens to the live
-token-creation feed, filters new mints down to the few worth thinking about, and then asks
-four different LLMs — Grok, Claude, GPT and Gemini — to examine the *same* launch from four
-angles they do not share: social chatter, on-chain wallet forensics, narrative quality, and
-the artwork itself.
+token-creation feed, filters new mints down to the few worth thinking about, and asks four
+different frontier models — Grok, Claude, GPT and Gemini — to examine the *same* launch
+from four angles they do not share: social chatter, on-chain wallet forensics, narrative
+quality, and the artwork itself.
 
 Their scores go to a consensus engine where any single specialist holds a veto. A surviving
-"buy" is handed to a fifth call — an adversarial checker whose only job is to find
-contradictions between the other four and talk the panel out of the trade. Every buy, every
-skip, every disagreement is written to JSONL, so you can go back afterwards and ask whether
-four models were actually worth four API calls.
+"buy" is handed to a fifth call — an adversarial adjudicator whose only job is to find
+contradictions between the other four and stop the trade. Every buy, every skip, every
+disagreement is written to JSONL, so you can go back and ask the only question that matters
+about this design: **was the fourth model worth a fourth API call?**
 
-`src/executor.py` is a stub. This is a research and analysis harness, not a bot that will
+`adapters/execution/stub.py` is a stub. This is a research harness, not a bot that will
 trade for you.
 
 ## Architecture
+
+Two views. The first is the decision flow; the second is the dependency structure that
+keeps it honest.
 
 ```mermaid
 flowchart TD
     WS(["wss://pumpportal.fun/api/data<br/><i>token creations only</i>"]):::feed
 
-    WS --> F["<b>CodeFilter</b><br/>metadata + curve gate, then metrics<br/>dedup · watch buffer · TTL expiry"]:::stage
-    F -->|"~1-3% survive"| D["<b>DataFetcher</b><br/>Solana Tracker: info · holders · trades<br/>Solana RPC: wallet balance + age"]:::stage
+    WS --> F["<b>PumpPortalFeed</b><br/>metadata + curve gate, then metrics<br/>dedup · watch buffer · TTL expiry"]:::stage
+    F -->|"~1-3% survive"| D["<b>SolanaTrackerProvider</b><br/>info · holders · trades<br/>+ RPC wallet balance and age"]:::stage
     D --> RG{"third-party<br/>rug score &gt; 7?"}:::gate
-    RG -->|yes| X1["skip — before a single<br/>LLM token is spent"]:::reject
+    RG -->|yes| X1["skip — before a single<br/>model token is spent"]:::reject
 
-    RG -->|no| G["<b>Grok</b><br/>social sentinel<br/><code>grok-4-fast</code>"]:::grok
-    RG -->|no| C["<b>Claude</b><br/>wallet auditor<br/><code>claude-sonnet-4-6</code>"]:::claude
-    RG -->|no| P["<b>GPT</b><br/>narrative scorer<br/><code>gpt-4o</code>"]:::gpt
-    RG -->|no| M["<b>Gemini</b><br/>image analyst<br/><code>gemini-2.5-flash</code>"]:::gemini
+    RG -->|no| G["<b>Grok</b><br/>social sentinel<br/><code>grok-4.6</code>"]:::grok
+    RG -->|no| C["<b>Claude</b><br/>wallet auditor<br/><code>claude-opus-5</code>"]:::claude
+    RG -->|no| P["<b>GPT</b><br/>narrative scorer<br/><code>gpt-5.6-sol</code>"]:::gpt
+    RG -->|no| M["<b>Gemini</b><br/>image analyst<br/><code>gemini-3.8-flash</code>"]:::gemini
 
     G --> CE
     C --> CE
@@ -57,14 +61,14 @@ flowchart TD
     M --> CE
 
     CE["<b>ConsensusEngine</b><br/>veto → vote → spread"]:::stage
-    CE -->|"skip / conflict"| X2["logged to<br/>conflicts.jsonl"]:::reject
-    CE -->|buy| AC["<b>AdversarialChecker</b><br/>cross-examines all four raw outputs<br/><i>absolute veto</i>"]:::checker
+    CE -->|"skip / conflict"| X2["conflicts.jsonl"]:::reject
+    CE -->|buy| AC["<b>AdversarialChecker</b><br/>cross-examines all four raw outputs<br/><code>claude-opus-5</code> · effort xhigh<br/><i>absolute veto</i>"]:::checker
     AC -->|"vetoed / confidence &lt; 0.4"| X2
     AC -->|approved| RM["<b>RiskManager</b><br/>sizing · daily loss · trade cap"]:::stage
     RM -->|"size = 0"| X2
     RM --> EX{{"mode"}}:::gate
-    EX -->|dry-run| LOG["<b>TradeLog</b><br/>trades.jsonl + conflicts.jsonl"]:::ok
-    EX -->|live| ST["<b>Executor</b><br/>STUB — does nothing"]:::reject
+    EX -->|dry-run| LOG["<b>JsonlJournal</b><br/>trades.jsonl + conflicts.jsonl"]:::ok
+    EX -->|live| ST["<b>StubExecutor</b><br/>STUB — does nothing"]:::reject
     ST --> LOG
 
     classDef feed fill:#0f172a,stroke:#475569,stroke-width:2px,color:#e2e8f0
@@ -79,31 +83,86 @@ flowchart TD
     classDef ok fill:#16a34a,stroke:#15803d,stroke-width:2px,color:#fff
 ```
 
-The four scoring agents run **concurrently** — they are independent, so the slowest one sets
-the round's latency. The checker runs after, because it needs all four outputs to compare.
+### Ports and adapters
+
+Every arrow crosses a protocol in [`ports.py`](src/trading_desk/ports.py). The domain is
+pure — a test asserts it imports no HTTP client and no model SDK — and the orchestrator
+depends only on the ports, never on a provider.
+
+```mermaid
+flowchart LR
+    subgraph APP["app/ — orchestration"]
+        PIPE["TradingPipeline<br/><i>decision sequence only</i>"]:::app
+        COMP["composition.py<br/><i>the only file that knows<br/>which class fills which port</i>"]:::app
+    end
+
+    subgraph PORTS["ports.py — protocols"]
+        direction TB
+        P1["TokenFeed"]:::port
+        P2["MarketDataProvider"]:::port
+        P3["ScoringAgent"]:::port
+        P4["Adjudicator"]:::port
+        P5["TradeExecutor"]:::port
+        P6["DecisionJournal"]:::port
+        P7["Clock"]:::port
+    end
+
+    subgraph DOM["domain/ — pure, no I/O"]
+        D1["ConsensusEngine"]:::dom
+        D2["RiskManager"]:::dom
+        D3["Token · AgentReport<br/>ConsensusResult"]:::dom
+    end
+
+    subgraph ADP["adapters/ — everything that touches the world"]
+        A1["PumpPortalFeed"]:::adp
+        A2["SolanaTrackerProvider"]:::adp
+        A3["4 × LLMAgent"]:::adp
+        A4["AdversarialChecker"]:::adp
+        A5["StubExecutor"]:::adp
+        A6["JsonlJournal"]:::adp
+    end
+
+    PIPE --> PORTS
+    PIPE --> DOM
+    COMP -.->|wires| ADP
+    A1 -.implements.-> P1
+    A2 -.implements.-> P2
+    A3 -.implements.-> P3
+    A4 -.implements.-> P4
+    A5 -.implements.-> P5
+    A6 -.implements.-> P6
+    ADP --> DOM
+
+    classDef app fill:#334155,stroke:#94a3b8,color:#f1f5f9
+    classDef port fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    classDef dom fill:#166534,stroke:#22c55e,color:#fff
+    classDef adp fill:#4a1d5f,stroke:#a855f7,color:#fff
+```
+
+The practical test of that structure: **adding a fifth seat to the panel is one line in
+`composition.py` and zero lines in `pipeline.py`.** There is a test that proves it —
+[`test_adding_a_fifth_seat_needs_no_pipeline_change`](tests/unit/app/test_pipeline.py).
 
 ## Where launches die
 
-Every gate below is ordered by cost: the free checks run first, so that the expensive ones
-never see most of the traffic. The percentages are the shape of the funnel, not a measured
-backtest — the thresholds are real, from `config.example.yaml`.
+Gates are ordered by cost, so the free checks run before the paid ones. Percentages are
+the shape of the funnel, not a measured backtest; the thresholds are real, from
+`config.example.yaml`.
 
 ```mermaid
 flowchart LR
     A["<b>every new mint</b><br/>live WebSocket"]:::s0
     B["<b>metadata + curve</b><br/>free — no API call<br/><code>require_metadata</code><br/><code>max_curve_pct 40</code>"]:::s1
-    C["<b>traction metrics</b><br/>1 API call each<br/><code>min_buyers 5</code><br/><code>min_volume_sol 0.5</code><br/><code>min_age_minutes 2</code>"]:::s2
-    D["<b>rug report</b><br/><code>risk_score ≤ 7</code>"]:::s3
-    E["<b>the panel</b><br/>4 LLM calls"]:::s4
-    F["<b>checker</b><br/>5th call"]:::s5
+    C["<b>traction metrics</b><br/>1 API call each<br/><code>min_buyers 5</code><br/><code>min_volume_sol 0.5</code>"]:::s2
+    D["<b>rug report</b><br/><code>max_rug_score 7</code>"]:::s3
+    E["<b>the panel</b><br/>4 model calls"]:::s4
+    F["<b>adjudicator</b><br/>5th call"]:::s5
     G["<b>sized entry</b>"]:::s6
 
     A -->|"100%"| B
     B -->|"~25%"| C
     C -->|"~1-3%"| D
-    D --> E
-    E --> F
-    F --> G
+    D --> E --> F --> G
 
     classDef s0 fill:#0f172a,stroke:#475569,color:#e2e8f0
     classDef s1 fill:#1e3a5f,stroke:#3b82f6,color:#fff
@@ -114,8 +173,8 @@ flowchart LR
     classDef s6 fill:#166534,stroke:#22c55e,stroke-width:3px,color:#fff
 ```
 
-That ordering is the whole reason the project is affordable to run: `filter.gate_concurrency`
-bounds the paid half, and roughly three quarters of launches are rejected before it.
+That ordering is why this is affordable to run at all: roughly three quarters of launches
+are rejected before anything is billed.
 
 ## Quick start
 
@@ -124,61 +183,63 @@ git clone https://github.com/zostaff/grok-claude-gpt-gemini-trading-desk
 cd grok-claude-gpt-gemini-trading-desk
 
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 cp config.example.yaml config.yaml
-$EDITOR config.yaml          # fill in the five API keys
+$EDITOR config.yaml          # fill in the credentials block
 
-python -m src.pipeline --config config.yaml --dry-run
+trading-desk run --dry-run
 ```
 
-Keys can also come from the environment, which overrides the file, so you never have to
-write them to disk:
+Credentials can come from the environment instead, so nothing secret is written to disk:
 
 ```bash
 export SOLANA_TRACKER_KEY=... XAI_API_KEY=... ANTHROPIC_API_KEY=... \
        OPENAI_API_KEY=... GOOGLE_API_KEY=...
-python -m src.pipeline --dry-run
+trading-desk run --dry-run
 ```
 
-If a key is missing or still contains a `YOUR_` placeholder, the pipeline refuses to start
-and names the offending key. It never silently skips an agent.
+If a key is missing or still holds a `YOUR_` placeholder, the pipeline refuses to start and
+names **every** offending key at once. It never silently skips a seat.
 
-Afterwards, see what the panel actually did:
+Afterwards, read back what the panel actually did:
 
 ```bash
-python -m src.analysis --log logs/trades.jsonl --conflicts logs/conflicts.jsonl
-pytest
+trading-desk analyse
+pytest && ruff check . && mypy
 ```
 
 ## The panel
 
-| | Agent | Model | Reads | Scores | Hard veto when |
+| | Agent | Model | Reads | Quality scores | Hard veto when |
 |---|---|---|---|---|---|
-| 🟣 | `GrokSocialSentinel` | `grok-4-fast` | Live X chatter for the ticker, name, contract address and creator account | `mention_velocity` · `whale_signal` · `sentiment_tone` · `source_quality` · `coordinated_shilling` | `coordinated_shilling > 0.7` |
-| 🟠 | `ClaudeWalletAuditor` | `claude-sonnet-4-6` | First 40 trades and top 15 holders, each wallet enriched with SOL balance and age | `coordination_score` · `wash_trading` · `dump_risk` · `organic_score` · `fresh_wallet_pct` | `dump_risk > 0.8` **or** `coordination_score > 0.8` |
-| 🟢 | `GPTNarrativeScorer` | `gpt-4o` | Name, symbol, description, socials, plus market context refreshed every 15 min | `narrative_fit` · `virality` · `originality` · `community_signal` · `name_quality` | never — a weak meme is not a rug |
-| 🔵 | `GeminiImageAnalyst` | `gemini-2.5-flash` | The token artwork itself, downloaded and resized to 1024px | `image_quality` · `meme_strength` · `effort_signal` · `originality_visual` · `red_flag_visual` | `red_flag_visual > 0.7` |
-| 🟤 | `AdversarialChecker` | `claude-sonnet-4-6` | All four agents' raw output, side by side | `approve` · `confidence_adjustment` · `missed_risk` | any contradiction it can name |
+| 🟣 | `GrokSocialSentinel` | `grok-4.6` | Live X, via the **`x_search` server-side tool** | `mention_velocity` · `whale_signal` · `sentiment_tone` · `source_quality` | `coordinated_shilling > 0.7` |
+| 🟠 | `ClaudeWalletAuditor` | `claude-opus-5` | First 40 trades and top 15 holders, each wallet enriched with SOL balance and age | `organic_score` | `dump_risk > 0.8` **or** `coordination_score > 0.8` |
+| 🟢 | `GPTNarrativeScorer` | `gpt-5.6-sol` | Name, symbol, description, socials, plus market context refreshed every 15 min | `narrative_fit` · `virality` · `originality` · `community_signal` · `name_quality` | never — a weak meme is not a rug |
+| 🔵 | `GeminiImageAnalyst` | `gemini-3.8-flash` | The token artwork, downloaded and re-encoded at 1024px | `image_quality` · `meme_strength` · `effort_signal` · `originality_visual` | `red_flag_visual > 0.7` |
+| 🟤 | `AdversarialChecker` | `claude-opus-5` @ `xhigh` | All four seats' raw output, side by side | — | any contradiction it can name |
 
-Grok is asked to search X because it is the only one of the four with live access to it.
-Gemini gets the image because the others cannot see it. Claude gets the wallet tables twice
-— once to audit them, once to cross-examine the panel — because the second pass is a
-different question from the first.
+Each seat is there because it sees something the others cannot. Grok has first-party X
+access; Gemini can look at the picture; Claude reads wallet tables as forensics; GPT judges
+the idea. A seat that duplicates another's view is a cost, not a vote — which is exactly
+what `trading-desk analyse` is built to expose.
+
+> **Grok's live access is not implicit.** xAI moved live retrieval behind server-side
+> tools, so a model merely *asked* to "search X" answers from its weights. This repo
+> declares `tools: [{"type": "x_search"}]` explicitly. That one line is the difference
+> between a social sentinel and a model confidently hallucinating engagement metrics.
 
 ## How the panel decides
 
-Thresholds are live values from `consensus:` in `config.example.yaml`.
-
 ```mermaid
 flowchart TD
-    IN["4 × ModelVerdict<br/><i>score, hard_veto, summary</i>"]:::in
+    IN["N × AgentReport<br/><i>quality_score, vetoed, summary</i>"]:::in
 
-    IN --> V{"any<br/><b>hard_veto</b>?"}:::gate
+    IN --> V{"any<br/><b>hard veto</b>?"}:::gate
     V -->|yes| SK1["<b>SKIP</b><br/>confidence 0.0<br/><i>one specialist outranks three generalists</i>"]:::bad
 
-    V -->|no| CL["classify each verdict<br/><b>bull</b> ≥ 0.55 · <b>bear</b> &lt; 0.45"]:::step
-    CL --> AGG["avg = mean of scores<br/>agreement = bulls / 4<br/>spread = max − min"]:::step
+    V -->|no| CL["classify each report<br/><b>bull</b> ≥ 0.55 · <b>bear</b> &lt; 0.45"]:::step
+    CL --> AGG["avg = mean of quality scores<br/>agreement = bulls / N<br/>spread = max − min"]:::step
 
     AGG --> Q1{"agreement ≥ <b>0.75</b><br/>AND<br/>avg ≥ <b>0.60</b>?"}:::gate
     Q1 -->|yes| BUY["<b>BUY</b><br/>confidence = avg × agreement"]:::good
@@ -194,28 +255,28 @@ flowchart TD
     classDef bad fill:#dc2626,stroke:#991b1b,stroke-width:2px,color:#fff
 ```
 
-The ordering matters. A hard veto short-circuits **before** averaging, because a rug flagged
-by one specialist must not be outvoted by three generalists who liked the picture.
+The ordering is the design. A hard veto short-circuits **before** averaging, because a rug
+flagged by one specialist must not be outvoted by three generalists who liked the picture.
 
 ## One token, end to end
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant F as CodeFilter
-    participant D as DataFetcher
+    participant F as PumpPortalFeed
+    participant D as MarketData
     participant G as 🟣 Grok
     participant C as 🟠 Claude
     participant P as 🟢 GPT
     participant M as 🔵 Gemini
-    participant K as 🟤 Checker
+    participant K as 🟤 Adjudicator
     participant R as RiskManager
-    participant L as TradeLog
+    participant L as Journal
 
     F->>D: token clears the gate
     D->>D: trades · holders · wallet age · rug report
     alt rug score > 7
-        D-->>L: skip (no LLM call made)
+        D-->>L: skip (no model call made)
     else clean enough to think about
         par four calls, concurrently
             D->>G: token + creator
@@ -226,11 +287,11 @@ sequenceDiagram
         and
             D->>M: artwork @ 1024px
         end
-        G-->>K: verdict
-        C-->>K: verdict
-        P-->>K: verdict
-        M-->>K: verdict
-        Note over K: consensus first —<br/>the checker only sees a "buy"
+        G-->>K: report
+        C-->>K: report
+        P-->>K: report
+        M-->>K: report
+        Note over K: consensus runs first —<br/>the adjudicator only ever sees a "buy"
         K->>K: hunt for contradictions
         alt approved and confidence ≥ 0.4
             K->>R: size it
@@ -243,8 +304,6 @@ sequenceDiagram
 
 ## Risk management
 
-Defaults in `config.example.yaml`:
-
 | Setting | Default | Meaning |
 |---|---|---|
 | `max_position_sol` | `0.1` | Hard ceiling on any single entry |
@@ -253,15 +312,14 @@ Defaults in `config.example.yaml`:
 | `max_daily_trades` | `10` | Halts on count too, not just loss |
 | `max_open_positions` | `3` | Concurrency cap |
 | `stop_loss_pct` / `take_profit_pct` | `50` / `100` | Exit triggers (executor stub) |
-| `max_hold_minutes` | `30` | Time-based exit |
 
 Sizing is `max_position_sol × (avg_score × final_confidence)`, then capped at **30% of what
 is left** of the daily loss budget.
 
 ### A losing session shrinks its own positions
 
-This is the part worth seeing as a curve. Same conviction (`0.50`) at every point — only the
-remaining daily budget changes:
+Same conviction (`0.50`) at every point — only the remaining daily budget changes. These
+numbers are computed by running `RiskManager` itself, not by hand:
 
 ```mermaid
 xychart-beta
@@ -275,119 +333,79 @@ xychart-beta
 | remaining budget | 30% cap | position size | |
 |---:|---:|---:|---|
 | 0.500 | 0.1500 | **0.0500** | conviction binds |
-| 0.400 | 0.1200 | **0.0500** | conviction binds |
-| 0.300 | 0.0900 | **0.0500** | conviction binds |
 | 0.200 | 0.0600 | **0.0500** | conviction binds |
 | 0.150 | 0.0450 | **0.0450** | ← budget starts binding |
 | 0.100 | 0.0300 | **0.0300** | budget binds |
 | 0.050 | 0.0150 | **0.0150** | budget binds |
-| 0.030 | 0.0090 | **0.0090** | budget binds |
 | 0.020 | 0.0060 | **0.0060** | budget binds |
 | 0.010 | 0.0030 | **0.0000** | ← cap fell under `min_position_sol`, trade skipped |
 
-The cliff at the bottom is deliberate: when the remaining budget cannot cover even the
+The cliff at the bottom is deliberate. When the remaining budget cannot cover even the
 minimum position, `position_size` returns `0.0` and the caller treats it as *do not trade*,
-never as a rounding artefact. A bad day therefore ends by starving itself, not by
-doubling down.
+never as a rounding artefact. A bad day ends by starving itself, not by doubling down.
 
-### Conviction, at a fresh budget
+## Three design decisions worth arguing with
 
-```mermaid
-xychart-beta
-    title "Position size vs conviction (score × confidence), full daily budget"
-    x-axis "conviction" ["0.015", "0.04", "0.10", "0.18", "0.30", "0.42", "0.60", "0.81", "1.00"]
-    y-axis "position size, SOL" 0 --> 0.11
-    line [0.005, 0.005, 0.010, 0.018, 0.030, 0.042, 0.060, 0.081, 0.100]
-```
+**1. Risk scores are never averaged into the aggregate.** `dump_risk`,
+`coordinated_shilling`, `red_flag_visual`, `coordination_score`, `wash_trading` and
+`fresh_wallet_pct` all mean "high is worse". Averaging them with quality scores would let a
+beautiful picture cancel out a rug warning, so each agent declares `quality_keys` and
+`risk_keys` separately; only the former forms the aggregate. Enforced in three places: the
+base class computes it, a contract test asserts the sets are disjoint, and a unit test
+asserts a maxed risk key cannot raise a quality score.
 
-Linear in conviction, with a floor at `min_position_sol` — below `0.05` conviction the size
-flattens rather than dwindling to dust.
+**2. Failure is pessimistic; absence of data is not.** A provider that times out yields
+that agent's worst-case scores — a blind analyst must not read as a clean bill of health.
+But a launch that simply shipped without artwork scores zero *without* a veto, via an
+explicit `neutral_exceptions` hook. Collapsing those two cases into one would veto every
+launch with no picture.
 
-## Two design decisions worth knowing about
-
-**Risk scores are never averaged into the aggregate.** `coordinated_shilling`, `dump_risk`,
-`coordination_score`, `wash_trading`, `fresh_wallet_pct` and `red_flag_visual` all mean
-"high is worse". Averaging them with quality scores would let a beautiful picture cancel out
-a rug warning, so `INVERTED_KEYS` excludes them from the aggregate entirely and they drive
-the hard vetoes instead. That is why `ClaudeWalletAuditor`'s aggregate is effectively
-`organic_score` alone.
-
-**Failure is pessimistic, but absence of data is not.** When an agent's API call or JSON
-parse fails, it returns its worst-case scores — a blind analyst must not read as a clean
-bill of health. The one exception is a token with no artwork: Gemini scores it all zeros
-with `red_flag_visual = 0`, because a missing image is a fact about the launch, not a system
-failure.
-
-## Two things that will bite you
-
-**1. pump.fun's public WebSocket only broadcasts token *creations*.** A create frame has no
-trade history and no description or image — those live in the off-chain metadata JSON at
-`uri`, which the filter fetches separately. Per-token trade streams (`subscribeTokenTrade`)
-exist, but PumpPortal gates them behind an API key funded with at least 0.02 SOL:
-
-```
-'subscribeTokenTrade' and 'subscribeAccountTrade' methods are only available when
-connecting with an API key funded with at least 0.02 SOL.
-```
-
-So the filter supports both real paths:
-
-| | `pumpportal_api_key` set | left empty |
-|---|---|---|
-| **buyers / volume** | live off the same socket | one Solana Tracker poll per candidate |
-| **extra cost** | none | 1 API call per launch watched |
-| **bounded by** | — | `filter.gate_concurrency` |
-
-Either path is correct. The cheap half of the gate runs first in both, so most launches are
-rejected before any call is made.
-
-**2. `google-generativeai` is end-of-life.** It still works and is what `requirements.txt`
-pins, but it prints a `FutureWarning` on import and Google has stopped updating it. The
-replacement is `google-genai`, a small change in `src/agents/gemini.py`:
-
-```python
-from google import genai
-client = genai.Client(api_key=api_key)
-resp = await client.aio.models.generate_content(model=self.model, contents=[prompt, img])
-```
-
-That version is natively async and would let you drop the `asyncio.to_thread` wrapper.
-
-## Implementing the executor
-
-`src/executor.py` is the only stubbed file in the project. To make it real you need:
-
-- **`build_buy_tx`** — a pump.fun buy instruction against the bonding curve, with an
-  associated token account created if absent, and slippage bounds from `solana.slippage_bps`.
-- **`send_with_priority`** — sign with the wallet key, attach a Jito tip, submit, confirm.
-- **`get_current_price`** — read the curve's virtual reserves for the mint.
-- **`monitor_and_stop`** — poll price, exit on stop-loss, take-profit or the hold timeout.
-
-Every stub already returns a correctly shaped dict, so the pipeline logs and the risk
-bookkeeping work in dry-run without them.
+**3. The adjudicator fails closed.** If the fifth call errors out, the trade is vetoed, not
+approved. The entire point of that seat is to stand between a confident panel and a bad
+trade; if it could not run, that thing was not there.
 
 ## Layout
 
 ```
-src/
-  config.py      pydantic settings, YAML + env, loud validation
-  models.py      Token / ModelVerdict / ConsensusResult
-  filter.py      live WebSocket, watch buffer, metric gate, dedup
-  data.py        Solana Tracker REST + RPC wallet enrichment + TTL cache
-  agents/        base.py (parse, retry, latency) + the five agents
-  consensus.py   veto -> vote -> spread
-  risk.py        sizing and the daily brakes
-  executor.py    STUBS ONLY
-  log.py         JSONL writers
-  pipeline.py    the orchestrator
-  analysis.py    post-run: who dissents, who vetoes, who is dead weight
-tests/           consensus, filter, parse, risk — 47 tests
+src/trading_desk/
+  ports.py         the protocols every component is written against
+  domain/          pure rules: token, reports, consensus, risk, clock — no I/O
+  adapters/        feed · market · agents · execution · journal
+  app/             pipeline.py (sequence only) + composition.py (the wiring)
+  config/          frozen, validated settings + loader
+  analysis.py      post-run: who dissents, who vetoes, who is dead weight
+docs/specs/        one spec per component: contract, failure policy, what's untested
+tests/
+  unit/            domain · adapters · config · app
+  contract/        every adapter must satisfy the port it claims
 ```
+
+Component contracts live in [`docs/specs/`](docs/specs/) — each names its port, its
+invariants, the failure mode it is required to choose, and **what it does not cover.**
+
+## What is not covered
+
+Stated plainly, because a review will find it anyway:
+
+- **The WebSocket loop has no tests.** Reconnect and re-subscribe behaviour is the largest
+  untested surface here.
+- **No end-to-end run against live provider APIs.** Every provider call shape was written
+  from current vendor documentation; none has been executed against a funded key. The xAI
+  `x_search` request shape in particular follows the documented example and is unverified
+  in practice.
+- **The executor is a stub.** Four functions in `adapters/execution/stub.py` return
+  correctly-shaped dicts and do nothing. Implement and audit them yourself before
+  `mode: live` means anything.
 
 ## A note on four models
 
 Four models agreeing is not four independent confirmations. They share training data, they
-share biases, and they will confidently agree with each other about a token that is about to
-go to zero. The adversarial checker exists precisely because consensus among language models
-is much weaker evidence than it appears — and `analysis.py` exists so you can check whether
-any given agent ever changed an outcome, or was just an expensive fifth opinion.
+share blind spots, and they will confidently agree with each other about a token that is
+about to go to zero. The adjudicator exists precisely because consensus among language
+models is much weaker evidence than it appears — and `trading-desk analyse` exists so you
+can check whether any given seat ever changed an outcome, or was just an expensive fifth
+opinion.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
