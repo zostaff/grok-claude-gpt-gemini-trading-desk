@@ -183,3 +183,15 @@ async def test_latency_is_always_recorded(context):
     report = await agent.evaluate(context)
     assert report.latency_ms >= 0
     assert report.vetoed is False
+
+
+async def test_a_nonsense_retry_budget_fails_loudly_rather_than_silently():
+    """`assert` would vanish under `python -O`; the error must survive optimisation."""
+    agent = SpyAgent()
+    agent.max_retries = -1
+
+    async def never_called():  # pragma: no cover - the loop must not reach it
+        raise AssertionError("the retry loop should not have run")
+
+    with pytest.raises(AgentError, match="without attempting a call"):
+        await agent._with_retry(never_called)

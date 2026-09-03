@@ -261,7 +261,11 @@ class LLMAgent(abc.ABC):
                     attempt + 1, self.max_retries, wait,
                 )
                 await asyncio.sleep(wait)
-        assert last is not None
+        if last is None:
+            # Reachable only with max_retries < 0, which would skip the loop entirely.
+            # An `assert` here would be stripped by `python -O` and degrade the message
+            # to "NoneType: None" exactly when someone is debugging a misconfiguration.
+            raise AgentError(f"{self.name}: retry loop exited without attempting a call")
         raise AgentError(f"{self.name}: {type(last).__name__}: {last}") from last
 
 

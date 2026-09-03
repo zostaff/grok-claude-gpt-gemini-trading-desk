@@ -55,6 +55,10 @@ Issues = "https://github.com/zostaff/grok-claude-gpt-gemini-trading-desk/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/trading_desk"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# PEP 561: without this marker a consumer's type checker ignores our annotations.
+"src/trading_desk/py.typed" = "trading_desk/py.typed"
+
 # --- tests -------------------------------------------------------------------
 
 [tool.pytest.ini_options]
