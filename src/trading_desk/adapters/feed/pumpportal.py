@@ -157,7 +157,6 @@ class PumpPortalFeed:
                         "connected to %s (metrics via %s)",
                         self.settings.endpoints.pumpportal_ws, source,
                     )
-                    delay = 1.0
                     await ws.send(
                         json.dumps(
                             {"method": "subscribeNewToken", "params": {"launchpad": "pumpfun"}}
@@ -167,6 +166,11 @@ class PumpPortalFeed:
                     if self.use_ws_trades and self._pending:
                         await self._subscribe_trades(list(self._pending))
                     async for msg in ws:
+                        # Backoff resets on a connection that DELIVERS, not on one that
+                        # merely opens. A server that accepts and immediately drops is
+                        # what rate limiting looks like, and resetting on connect alone
+                        # would spin us against it at one attempt per second forever.
+                        delay = 1.0
                         await self._handle_message(msg)
             except asyncio.CancelledError:
                 raise

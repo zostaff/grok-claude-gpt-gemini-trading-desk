@@ -58,6 +58,33 @@ def make_report(agent: str, score: float, **overrides) -> AgentReport:
     return AgentReport(**fields)
 
 
+# --- recorded pumpportal frames ---------------------------------------------
+# Real payload shapes, kept here so the frame tests and the connection tests share one
+# source of truth rather than drifting apart.
+
+CREATE_FRAME = {
+    "signature": "5x" + "a" * 60,
+    "mint": "GJDdaRTAaCbTZ6Xo1qEnGBgNPQBhVTAj5eqSN6RTpump",
+    "traderPublicKey": "Bp7CreatorWallet1111111111111111111111111111",
+    "txType": "create",
+    "initialBuy": 60_000_000.0,
+    "solAmount": 1.85,
+    "name": "Test Coin",
+    "symbol": "TEST",
+    "uri": "https://ipfs.io/ipfs/QmExample",
+    "vTokensInBondingCurve": 1_013_000_191.0,
+}
+
+BUY_FRAME = {
+    "signature": "3z" + "b" * 60,
+    "mint": CREATE_FRAME["mint"],
+    "traderPublicKey": "Buyer111111111111111111111111111111111111111",
+    "txType": "buy",
+    "solAmount": 0.4,
+    "vTokensInBondingCurve": 900_000_000.0,
+}
+
+
 @pytest.fixture
 def settings() -> Settings:
     """Default settings for tests that need them."""

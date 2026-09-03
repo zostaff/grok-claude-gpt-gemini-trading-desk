@@ -6,7 +6,7 @@
 A fifth is paid to talk them out of it.**
 
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-130%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/tests-193%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-clean-2563eb?style=for-the-badge)](pyproject.toml)
 [![Lint](https://img.shields.io/badge/ruff-clean-7c3aed?style=for-the-badge)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-64748b?style=for-the-badge)](LICENSE)
@@ -387,8 +387,9 @@ invariants, the failure mode it is required to choose, and **what it does not co
 
 Stated plainly, because a review will find it anyway:
 
-- **The WebSocket loop has no tests.** Reconnect and re-subscribe behaviour is the largest
-  untested surface here.
+- **The RPC wallet enrichment has no tests.** Batching, the `MAX_AGED_WALLETS` bound and
+  the `_rpc_ok` latch in the market adapter are exercised by nothing. The socket itself is
+  now covered against a scripted fake — frames, reconnect, re-subscribe and backoff.
 - **No end-to-end run against live provider APIs.** Every provider call shape was written
   from current vendor documentation; none has been executed against a funded key. The xAI
   `x_search` request shape in particular follows the documented example and is unverified

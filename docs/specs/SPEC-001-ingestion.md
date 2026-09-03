@@ -69,9 +69,28 @@ enough that unbounded concurrent fetches fail outright.
 
 ## Verification
 
-`tests/unit/adapters/test_feed_gate.py` covers every threshold at, above and below the
-boundary, the metadata switch, empty-mint rejection, and the dedup bound.
+`tests/unit/adapters/test_feed_gate.py` — every threshold at, above and below the
+boundary, the metadata switch, empty-mint rejection, the dedup bound.
 
-**Not covered:** the WebSocket loop itself. Reconnect and re-subscribe behaviour is
-exercised by neither unit nor integration tests, and is the largest untested surface in
-the project. A recorded-frame fixture feeding `_handle_message` would close most of it.
+`tests/unit/adapters/test_feed_frames.py` — the frame path, driven by recorded pumpportal
+payloads through `_handle_message`: routing, subscription acks, unroutable input (empty,
+garbage, arrays, bare strings, missing `txType`), the create path including duplicate and
+already-emitted mints, trade folding for buys and sells, sell magnitude, a malformed
+amount costing only that field, curve progress, and the api-key URL.
+
+`tests/unit/adapters/test_feed_connection.py` — the lifecycle against a scripted fake
+socket: the initial subscribe, frames reaching the handler, reconnect after a drop,
+per-token subscriptions restored on reconnect, backoff growth and its 60s cap, backoff
+reset, the socket handle cleared between connections, and the api key carried on every
+reconnect.
+
+**Still not covered:** nothing in this component. The next gap is one layer down, in
+SPEC-002's RPC enrichment.
+
+### A defect these tests found
+
+`delay = 1.0` sat immediately after the connection opened, so the exponential backoff only
+applied when `websockets.connect` itself failed. A server that accepts a connection and
+then drops it — which is what rate limiting usually looks like — would have been retried
+once per second indefinitely. The reset now happens when a frame actually arrives, so
+"healthy" means "delivered data", not "answered the handshake".

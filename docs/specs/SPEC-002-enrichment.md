@@ -43,9 +43,14 @@ Module constants: `RPC_ACCOUNT_BATCH` (100, the `getMultipleAccounts` limit),
 
 ## Verification
 
-Contract test only (`tests/contract/`): the adapter satisfies the port.
+`tests/unit/adapters/test_market_parsers.py` — every envelope shape the provider uses,
+holder addresses under all three field names, descending sort, unattributable rows dropped,
+nested and scalar `value`, enrichment fields starting `None` rather than `0.0`, millisecond
+and second timestamps, chronological trade order, the `amountSol` fallback chain, clock skew
+clamped at zero, gate metrics, and the tri-state authority flags.
 
-**Not covered:** the response parsers. Solana Tracker returns bare lists on some routes and
-wrapped objects on others, and `_as_list` / `_parse_risk` / `_parse_holders` encode that
-by hand with no fixture behind them. Recorded payloads would be the highest-value tests to
-add next.
+Contract test: the adapter satisfies the port.
+
+**Not covered:** the HTTP layer and `_enrich_wallets`. The RPC batching, the
+`MAX_AGED_WALLETS` bound and the `_rpc_ok` latch are exercised by nothing; a fake transport
+would close that.

@@ -4,24 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from tests.conftest import CREATE_FRAME
 from trading_desk.domain.token import (
     CURVE_INITIAL_TOKENS,
     Token,
     curve_pct_from_reserves,
 )
-
-CREATE_FRAME = {
-    "signature": "5x" + "a" * 60,
-    "mint": "GJDdaRTAaCbTZ6Xo1qEnGBgNPQBhVTAj5eqSN6RTpump",
-    "traderPublicKey": "Bp7CreatorWallet1111111111111111111111111111",
-    "txType": "create",
-    "initialBuy": 60_000_000.0,
-    "solAmount": 1.85,
-    "name": "Test Coin",
-    "symbol": "TEST",
-    "uri": "https://ipfs.io/ipfs/QmExample",
-    "vTokensInBondingCurve": 1_013_000_191.0,
-}
 
 
 def test_create_frame_is_parsed(token=None):
