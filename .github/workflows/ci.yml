@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Types
+        run: mypy
+
+      - name: Tests
+        run: pytest
+
+  # The panel is only substitutable if every adapter really satisfies its port. Running
+  # that suite on its own makes a contract break obvious in the checks list, rather than
+  # something to find inside a wall of unit-test output.
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Port conformance
+        run: pytest -m contract -v
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No real credentials in the tree
+        run: |
+          # config.yaml is gitignored; this catches the day it stops being.
+          if git ls-files --error-unmatch config.yaml 2>/dev/null; then
+            echo "::error::config.yaml is tracked -- it holds real keys"; exit 1
+          fi
+          if git grep -nIE 'sk-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9-]{20,}|xai-[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}' -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::a live-looking API key is committed"; exit 1
+          fi
+          echo "clean"

@@ -1,8 +1,19 @@
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 .venv/
 venv/
+
+# Holds real API keys. config.example.yaml is the tracked template.
 config.yaml
+
 logs/*.jsonl
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .DS_Store
+
+# Not part of the project: a local scratch script that prints simulated output.
+demo.py
