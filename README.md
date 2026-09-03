@@ -12,7 +12,7 @@ is written to JSONL so you can go back afterwards and ask whether four models we
 worth four API calls.
 
 **The executor is a stub.** This is a research and analysis harness, not a bot that will
-trade for you. See the disclaimer at the bottom.
+trade for you.
 
 ## Architecture
 
@@ -216,15 +216,3 @@ src/
   analysis.py    post-run: who dissents, who vetoes, who is dead weight
 tests/           consensus, filter, parse, risk
 ```
-
-## Disclaimer
-
-This is an educational project. The executor is a stub. Do not trade with real money
-without implementing and auditing the Solana transaction code yourself.
-
-Beyond that: memecoin trading loses money for almost everyone who tries it, and an LLM
-panel does not change that. Four models agreeing is not four independent confirmations —
-they share training data, they share biases, and they will confidently agree with each
-other about a token that is about to go to zero. The adversarial checker exists precisely
-because consensus among language models is much weaker evidence than it appears. Treat the
-output as a research artifact, not a signal.
