@@ -49,8 +49,16 @@ nested and scalar `value`, enrichment fields starting `None` rather than `0.0`, 
 and second timestamps, chronological trade order, the `amountSol` fallback chain, clock skew
 clamped at zero, gate metrics, and the tri-state authority flags.
 
+`tests/unit/adapters/test_market_fetch.py` — the three routes fetched and parsed, one dead
+route not costing the others, a dead risk route yielding a neutral report rather than a
+pass, the TTL cache serving a second call, expiry refetching, and stale entries pruned.
+
+`tests/unit/adapters/test_market_rpc.py` — over a fake transport: transport failure and
+JSON-RPC error bodies both latching enrichment off for the run, lamports converted to SOL,
+a nonexistent account read as zero rather than unknown, batching at the 100-pubkey limit,
+a truncated reply degrading instead of raising, ageing from the oldest signature, wallets
+deduplicated across holders and trades, and the `MAX_AGED_WALLETS` bound.
+
 Contract test: the adapter satisfies the port.
 
-**Not covered:** the HTTP layer and `_enrich_wallets`. The RPC batching, the
-`MAX_AGED_WALLETS` bound and the `_rpc_ok` latch are exercised by nothing; a fake transport
-would close that.
+**Not covered:** nothing in this component.

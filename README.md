@@ -6,7 +6,7 @@
 A fifth is paid to talk them out of it.**
 
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-193%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/tests-236%20passing-16a34a?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-clean-2563eb?style=for-the-badge)](pyproject.toml)
 [![Lint](https://img.shields.io/badge/ruff-clean-7c3aed?style=for-the-badge)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-64748b?style=for-the-badge)](LICENSE)
@@ -387,16 +387,18 @@ invariants, the failure mode it is required to choose, and **what it does not co
 
 Stated plainly, because a review will find it anyway:
 
-- **The RPC wallet enrichment has no tests.** Batching, the `MAX_AGED_WALLETS` bound and
-  the `_rpc_ok` latch in the market adapter are exercised by nothing. The socket itself is
-  now covered against a scripted fake — frames, reconnect, re-subscribe and backoff.
-- **No end-to-end run against live provider APIs.** Every provider call shape was written
-  from current vendor documentation; none has been executed against a funded key. The xAI
-  `x_search` request shape in particular follows the documented example and is unverified
-  in practice.
+- **No provider call has ever been executed.** This is the real gap. Every request shape
+  — the xAI `x_search` tool, the OpenAI Responses `parse`, the Anthropic `output_config`,
+  the google-genai vision call — was written from current vendor documentation and has not
+  been run against a funded key. Everything *around* those calls is tested against fakes;
+  the calls themselves are unverified.
 - **The executor is a stub.** Four functions in `adapters/execution/stub.py` return
   correctly-shaped dicts and do nothing. Implement and audit them yourself before
   `mode: live` means anything.
+
+Everything else has tests: the socket (frames, reconnect, re-subscribe, backoff), the
+response parsers, the RPC enrichment, the gate, consensus, sizing, the journal, config
+loading, the orchestrator against fake ports, the analysis report, and the CLI.
 
 ## A note on four models
 
